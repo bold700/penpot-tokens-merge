@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Token Merge</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      background: #1e1e1e;
+      color: #e0e0e0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .steps {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 14px 14px 0;
+    }
+
+    .step-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #252525;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 9px 12px;
+    }
+    .step-row.clickable { cursor: pointer; }
+    .step-row.clickable:hover { background: #2a2a2a; border-color: #555; }
+    .step-row.done { border-color: #22c55e55; }
+    .step-row.has-error { border-color: #ef444455; }
+
+    .step-icon {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: #333; color: #777;
+      font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-icon.spinning { animation: spin 0.8s linear infinite; color: #888; }
+    .step-icon.done { background: #14532d; color: #22c55e; }
+    .step-icon.error { background: #450a0a; color: #ef4444; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .step-text { flex: 1; }
+    .step-title { font-size: 12px; font-weight: 600; color: #ccc; }
+    .step-sub { font-size: 11px; color: #555; margin-top: 1px; }
+    .step-row.done .step-title { color: #86efac; }
+    .step-row.done .step-sub { color: #4ade8055; }
+    .step-row.has-error .step-title { color: #fca5a5; }
+
+    input[type="file"] { display: none; }
+
+    .middle {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .center-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: #666;
+      font-size: 12px;
+    }
+    .spinner {
+      width: 28px; height: 28px;
+      border: 2px solid #333;
+      border-top-color: #7c3aed;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .center-state.success-state { color: #22c55e; }
+    .center-state.success-state .check { font-size: 28px; }
+
+    .diff-toolbar {
+      flex-shrink: 0;
+      padding: 8px 14px;
+      border-bottom: 1px solid #2a2a2a;
+      display: flex;
+      align-items: center;
+    }
+    .diff-stats { flex: 1; font-size: 11px; color: #666; display: flex; gap: 10px; }
+    .stat { display: flex; align-items: center; gap: 4px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .dot.new     { background: #22c55e; }
+    .dot.changed { background: #f59e0b; }
+    .dot.removed { background: #ef4444; }
+
+    .diff-list { flex: 1; overflow-y: auto; }
+    .diff-list::-webkit-scrollbar { width: 4px; }
+    .diff-list::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    .section-header {
+      padding: 6px 14px;
+      background: #222;
+      border-bottom: 1px solid #2a2a2a;
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: #555;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-toggle {
+      margin-left: auto;
+      font-size: 10px; color: #444;
+      cursor: pointer; user-select: none;
+      text-transform: none; letter-spacing: 0;
+    }
+    .section-toggle:hover { color: #888; }
+
+    .token-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 14px;
+      border-bottom: 1px solid #242424;
+      min-height: 32px;
+    }
+    .token-row:hover { background: #222; }
+
+    .token-cb { flex-shrink: 0; accent-color: #7c3aed; cursor: pointer; }
+
+    .token-name {
+      flex: 1; min-width: 0;
+      font-size: 11px; color: #bbb;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .token-set { color: #555; font-size: 10px; }
+
+    .token-val {
+      font-size: 11px; font-family: monospace; color: #888;
+      display: flex; align-items: center; gap: 4px;
+      flex-shrink: 0; max-width: 110px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .color-swatch {
+      width: 11px; height: 11px;
+      border-radius: 2px; border: 1px solid #444; flex-shrink: 0;
+    }
+
+    .conflict-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 14px;
+      border-bottom: 1px solid #242424;
+      min-height: 36px;
+    }
+    .conflict-row:hover { background: #222; }
+
+    .conflict-values {
+      display: flex; align-items: center; gap: 4px;
+      flex-shrink: 0; font-size: 10px; font-family: monospace;
+    }
+    .val-old { color: #555; text-decoration: line-through; }
+    .val-new { color: #bbb; }
+    .val-cur { color: #888; }
+    .arrow { color: #444; }
+
+    .actions { display: flex; gap: 2px; flex-shrink: 0; }
+    .act-btn {
+      padding: 3px 7px; font-size: 10px; font-weight: 600;
+      border: 1px solid #333; border-radius: 4px;
+      background: transparent; color: #555;
+      cursor: pointer; white-space: nowrap;
+    }
+    .act-btn:hover { border-color: #555; color: #999; }
+    .act-btn.active-replace { background: #7c3aed22; border-color: #7c3aed; color: #a78bfa; }
+    .act-btn.active-ignore  { background: #33333322; border-color: #555;    color: #aaa; }
+    .act-btn.active-both    { background: #f59e0b22; border-color: #f59e0b; color: #fbbf24; }
+    .act-btn.active-keep    { background: #33333322; border-color: #555;    color: #aaa; }
+    .act-btn.active-remove  { background: #ef444422; border-color: #ef4444; color: #f87171; }
+
+    .footer {
+      flex-shrink: 0;
+      padding: 10px 14px;
+      border-top: 1px solid #2a2a2a;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .apply-btn {
+      flex: 1;
+      background: #7c3aed; color: #fff;
+      border: none; border-radius: 7px;
+      padding: 9px 16px; font-size: 13px; font-weight: 600;
+      cursor: pointer;
+    }
+    .apply-btn:hover:not(:disabled) { background: #6d28d9; }
+    .apply-btn:disabled { background: #2a2a2a; color: #444; cursor: not-allowed; }
+    .footer-status { font-size: 11px; color: #555; }
+    .footer-status.err { color: #ef4444; }
+  </style>
+</head>
+<body>
+
+  <div class="steps">
+    <div class="step-row" id="row1">
+      <div class="step-icon spinning" id="icon1">↻</div>
+      <div class="step-text">
+        <div class="step-title">Current tokens</div>
+        <div class="step-sub" id="sub1">Reading from Penpot...</div>
+      </div>
+    </div>
+    <div class="step-row clickable" id="row2">
+      <div class="step-icon" id="icon2">2</div>
+      <div class="step-text">
+        <div class="step-title">New tokens</div>
+        <div class="step-sub" id="sub2">Click to upload</div>
+      </div>
+      <input type="file" id="input2" accept=".json" />
+    </div>
+  </div>
+
+  <div class="middle" id="middle"></div>
+
+  <div class="footer" id="footer" style="display:none">
+    <button class="apply-btn" id="apply-btn" disabled>Apply to Penpot</button>
+    <div class="footer-status" id="footer-status"></div>
+  </div>
+
+  <script>
+    let currentFlat = {};
+    let diffItems   = [];
+
+    const row1 = document.getElementById('row1');
+    const icon1 = document.getElementById('icon1');
+    const sub1  = document.getElementById('sub1');
+    const row2  = document.getElementById('row2');
+    const icon2 = document.getElementById('icon2');
+    const sub2  = document.getElementById('sub2');
+    const input2 = document.getElementById('input2');
+    const middle = document.getElementById('middle');
+    const footer = document.getElementById('footer');
+    const applyBtn = document.getElementById('apply-btn');
+    const footerStatus = document.getElementById('footer-status');
+
+    // ── Helpers ──────────────────────────────────────────────
+
+    function isColor(v) {
+      return v && /^#[0-9a-f]{3,8}$/i.test(String(v).trim());
+    }
+    function swatch(val) {
+      if (!isColor(val)) return '';
+      return `<span class="color-swatch" style="background:${val}"></span>`;
+    }
+    function shortVal(v) {
+      const s = String(v);
+      return s.length > 16 ? s.slice(0, 15) + '…' : s;
+    }
+
+    function flattenSetJSON(obj, prefix) {
+      const out = {};
+      for (const [k, v] of Object.entries(obj)) {
+        if (k.startsWith('$')) continue;
+        const path = prefix ? prefix + '.' + k : k;
+        if (v && typeof v === 'object') {
+          if ('$value' in v || 'value' in v) {
+            const raw = v.$value ?? v.value ?? '';
+            out[path] = {
+              value: typeof raw === 'object' ? JSON.stringify(raw) : String(raw),
+              type:  v.$type ?? v.type ?? 'other',
+            };
+          } else {
+            Object.assign(out, flattenSetJSON(v, path));
+          }
+        }
+      }
+      return out;
+    }
+
+    function flattenAll(data) {
+      const out = {};
+      for (const [setName, setObj] of Object.entries(data)) {
+        if (setName.startsWith('$') || typeof setObj !== 'object') continue;
+        out[setName] = flattenSetJSON(setObj);
+      }
+      return out;
+    }
+
+    // ── Plugin messaging ──────────────────────────────────────
+
+    window.parent.postMessage({ type: 'ready' }, '*');
+
+    window.addEventListener('message', e => {
+      const msg = e.data;
+      if (!msg || !msg.type) return;
+
+      if (msg.type === 'current-tokens') {
+        currentFlat = flattenAll(msg.data);
+        icon1.textContent = '✓';
+        icon1.className = 'step-icon done';
+        sub1.textContent = `${msg.setCount} set${msg.setCount !== 1 ? 's' : ''} loaded`;
+        row1.classList.add('done');
+      }
+
+      if (msg.type === 'apply-done') {
+        showApplied(msg.count);
+      }
+
+      if (msg.type === 'error') {
+        if (!Object.keys(currentFlat).length) {
+          icon1.textContent = '!';
+          icon1.className = 'step-icon error';
+          sub1.textContent = msg.message;
+          row1.classList.add('has-error');
+        } else {
+          footerStatus.textContent = msg.message;
+          footerStatus.className = 'footer-status err';
+          applyBtn.disabled = false;
+          applyBtn.textContent = 'Apply to Penpot';
+        }
+      }
+    });
+
+    // ── Upload ────────────────────────────────────────────────
+
+    row2.addEventListener('click', () => input2.click());
+
+    input2.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          icon2.textContent = '✓';
+          icon2.className = 'step-icon done';
+          sub2.textContent = file.name;
+          row2.classList.add('done');
+          showAnalyzing();
+          setTimeout(() => buildDiff(flattenAll(data)), 30);
+        } catch {
+          footerStatus.textContent = 'Invalid JSON';
+          footerStatus.className = 'footer-status err';
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    // ── States ────────────────────────────────────────────────
+
+    function showAnalyzing() {
+      middle.innerHTML = `<div class="center-state"><div class="spinner"></div><span>Analyzing...</span></div>`;
+      footer.style.display = 'none';
+    }
+
+    function showApplied(count) {
+      middle.innerHTML = `
+        <div class="center-state success-state">
+          <span class="check">✓</span>
+          <span>${count} change${count !== 1 ? 's' : ''} applied to Penpot</span>
+          <button id="again-btn" style="margin-top:8px;padding:7px 16px;background:#2a2a2a;border:1px solid #444;border-radius:7px;color:#ccc;font-size:12px;font-weight:600;cursor:pointer;">Merge another file</button>
+        </div>`;
+      footer.style.display = 'none';
+      document.getElementById('again-btn').addEventListener('click', reset);
+    }
+
+    function reset() {
+      diffItems = [];
+      currentFlat = {};
+
+      icon1.textContent = '↻';
+      icon1.className = 'step-icon spinning';
+      sub1.textContent = 'Reading from Penpot...';
+      row1.className = 'step-row';
+
+      icon2.textContent = '2';
+      icon2.className = 'step-icon';
+      sub2.textContent = 'Click to upload';
+      row2.className = 'step-row clickable';
+      input2.value = '';
+
+      middle.innerHTML = '';
+      footer.style.display = 'none';
+      footerStatus.textContent = '';
+
+      window.parent.postMessage({ type: 'ready' }, '*');
+    }
+
+    // ── Diff ──────────────────────────────────────────────────
+
+    function buildDiff(incomingFlat) {
+      diffItems = [];
+
+      for (const [setName, tokens] of Object.entries(incomingFlat)) {
+        for (const [tokenName, tok] of Object.entries(tokens)) {
+          const cur = currentFlat[setName]?.[tokenName];
+          if (!cur) {
+            diffItems.push({ kind: 'new', setName, tokenName, value: tok.value, type: tok.type, include: true });
+          } else if (String(cur.value).toUpperCase() !== String(tok.value).toUpperCase()) {
+            diffItems.push({ kind: 'changed', setName, tokenName, oldValue: cur.value, newValue: tok.value, type: tok.type, action: 'replace' });
+          }
+        }
+      }
+
+      for (const [setName, tokens] of Object.entries(currentFlat)) {
+        for (const [tokenName, tok] of Object.entries(tokens)) {
+          if (!incomingFlat[setName]?.[tokenName]) {
+            diffItems.push({ kind: 'removed', setName, tokenName, value: tok.value, type: tok.type, action: 'keep' });
+          }
+        }
+      }
+
+      renderDiff();
+    }
+
+    function makeActionBtn(d, acts, label, actionKey, activeClass) {
+      const btn = document.createElement('button');
+      btn.className = 'act-btn' + (d.action === actionKey ? ' ' + activeClass : '');
+      btn.textContent = label;
+      btn.dataset.a = actionKey;
+      btn.addEventListener('click', () => {
+        d.action = actionKey;
+        acts.querySelectorAll('.act-btn').forEach(b => {
+          b.className = 'act-btn';
+          if (b.dataset.a === actionKey) b.className = 'act-btn ' + activeClass;
+        });
+        updateApplyLabel();
+      });
+      return btn;
+    }
+
+    function renderDiff() {
+      const newItems     = diffItems.filter(d => d.kind === 'new');
+      const changedItems = diffItems.filter(d => d.kind === 'changed');
+      const removedItems = diffItems.filter(d => d.kind === 'removed');
+      const total = newItems.length + changedItems.length + removedItems.length;
+
+      if (total === 0) {
+        middle.innerHTML = `<div class="center-state"><span>No changes found.</span></div>`;
+        footer.style.display = 'none';
+        return;
+      }
+
+      middle.innerHTML = '';
+      footer.style.display = '';
+      updateApplyLabel();
+
+      // Toolbar
+      const toolbar = document.createElement('div');
+      toolbar.className = 'diff-toolbar';
+      toolbar.innerHTML = `<div class="diff-stats">
+        <span class="stat"><span class="dot new"></span>${newItems.length} new</span>
+        <span class="stat"><span class="dot changed"></span>${changedItems.length} changed</span>
+        <span class="stat"><span class="dot removed"></span>${removedItems.length} removed</span>
+      </div>`;
+      middle.appendChild(toolbar);
+
+      const list = document.createElement('div');
+      list.className = 'diff-list';
+      middle.appendChild(list);
+
+      // ── New ──
+      if (newItems.length) {
+        const sec = document.createElement('div');
+        sec.className = 'section-header';
+        const tog = document.createElement('span');
+        tog.className = 'section-toggle';
+        tog.textContent = 'Select none';
+        sec.innerHTML = `<span class="dot new"></span> NEW TOKENS`;
+        sec.appendChild(tog);
+        list.appendChild(sec);
+
+        tog.addEventListener('click', () => {
+          const allOn = newItems.every(d => d.include);
+          newItems.forEach(d => d.include = !allOn);
+          tog.textContent = allOn ? 'Select all' : 'Select none';
+          list.querySelectorAll('.new-cb').forEach((cb, i) => { cb.checked = newItems[i].include; });
+          updateApplyLabel();
+        });
+
+        for (const d of newItems) {
+          const row = document.createElement('div');
+          row.className = 'token-row';
+
+          const cb = document.createElement('input');
+          cb.type = 'checkbox'; cb.className = 'token-cb new-cb'; cb.checked = d.include;
+          cb.addEventListener('change', () => { d.include = cb.checked; updateApplyLabel(); });
+
+          const nameEl = document.createElement('div');
+          nameEl.className = 'token-name';
+          nameEl.innerHTML = `<span class="token-set">${d.setName} · </span>${d.tokenName}`;
+          nameEl.title = d.setName + ' · ' + d.tokenName;
+
+          const valEl = document.createElement('div');
+          valEl.className = 'token-val';
+          valEl.innerHTML = swatch(d.value) + `<span>${shortVal(d.value)}</span>`;
+
+          row.appendChild(cb); row.appendChild(nameEl); row.appendChild(valEl);
+          list.appendChild(row);
+        }
+      }
+
+      // ── Changed ──
+      if (changedItems.length) {
+        const sec = document.createElement('div');
+        sec.className = 'section-header';
+        const tog = document.createElement('span');
+        tog.className = 'section-toggle';
+        tog.textContent = 'Ignore all';
+        sec.innerHTML = `<span class="dot changed"></span> CHANGED TOKENS`;
+        sec.appendChild(tog);
+        list.appendChild(sec);
+
+        let ignoreAll = false;
+        tog.addEventListener('click', () => {
+          ignoreAll = !ignoreAll;
+          changedItems.forEach(d => d.action = ignoreAll ? 'ignore' : 'replace');
+          tog.textContent = ignoreAll ? 'Replace all' : 'Ignore all';
+          renderDiff();
+        });
+
+        for (const d of changedItems) {
+          const row = document.createElement('div');
+          row.className = 'conflict-row';
+
+          const nameEl = document.createElement('div');
+          nameEl.className = 'token-name';
+          nameEl.innerHTML = `<span class="token-set">${d.setName} · </span>${d.tokenName}`;
+          nameEl.title = d.setName + ' · ' + d.tokenName;
+
+          const vals = document.createElement('div');
+          vals.className = 'conflict-values';
+          vals.innerHTML = `${swatch(d.oldValue)}<span class="val-old">${shortVal(d.oldValue)}</span>
+            <span class="arrow">→</span>
+            ${swatch(d.newValue)}<span class="val-new">${shortVal(d.newValue)}</span>`;
+
+          const acts = document.createElement('div');
+          acts.className = 'actions';
+          acts.appendChild(makeActionBtn(d, acts, 'Replace', 'replace',   'active-replace'));
+          acts.appendChild(makeActionBtn(d, acts, 'Ignore',  'ignore',    'active-ignore'));
+          acts.appendChild(makeActionBtn(d, acts, 'Both',    'keep-both', 'active-both'));
+
+          row.appendChild(nameEl); row.appendChild(vals); row.appendChild(acts);
+          list.appendChild(row);
+        }
+      }
+
+      // ── Removed ──
+      if (removedItems.length) {
+        const sec = document.createElement('div');
+        sec.className = 'section-header';
+        const tog = document.createElement('span');
+        tog.className = 'section-toggle';
+        tog.textContent = 'Remove all';
+        sec.innerHTML = `<span class="dot removed"></span> REMOVED IN NEW FILE`;
+        sec.appendChild(tog);
+        list.appendChild(sec);
+
+        let removeAll = false;
+        tog.addEventListener('click', () => {
+          removeAll = !removeAll;
+          removedItems.forEach(d => d.action = removeAll ? 'remove' : 'keep');
+          tog.textContent = removeAll ? 'Keep all' : 'Remove all';
+          renderDiff();
+        });
+
+        for (const d of removedItems) {
+          const row = document.createElement('div');
+          row.className = 'conflict-row';
+
+          const nameEl = document.createElement('div');
+          nameEl.className = 'token-name';
+          nameEl.innerHTML = `<span class="token-set">${d.setName} · </span>${d.tokenName}`;
+          nameEl.title = d.setName + ' · ' + d.tokenName;
+
+          const vals = document.createElement('div');
+          vals.className = 'conflict-values';
+          vals.innerHTML = `${swatch(d.value)}<span class="val-cur">${shortVal(d.value)}</span>`;
+
+          const acts = document.createElement('div');
+          acts.className = 'actions';
+          acts.appendChild(makeActionBtn(d, acts, 'Keep',   'keep',   'active-keep'));
+          acts.appendChild(makeActionBtn(d, acts, 'Remove', 'remove', 'active-remove'));
+
+          row.appendChild(nameEl); row.appendChild(vals); row.appendChild(acts);
+          list.appendChild(row);
+        }
+      }
+    }
+
+    function updateApplyLabel() {
+      const n = diffItems.filter(d => d.kind === 'new'     && d.include).length;
+      const c = diffItems.filter(d => d.kind === 'changed' && (d.action === 'replace' || d.action === 'keep-both')).length;
+      const r = diffItems.filter(d => d.kind === 'removed' && d.action === 'remove').length;
+      const total = n + c + r;
+      applyBtn.disabled = total === 0;
+      applyBtn.textContent = total > 0 ? `Apply ${total} change${total !== 1 ? 's' : ''}` : 'Nothing selected';
+    }
+
+    // ── Apply ─────────────────────────────────────────────────
+
+    applyBtn.addEventListener('click', () => {
+      const actions = [];
+      for (const d of diffItems) {
+        if (d.kind === 'new' && d.include) {
+          actions.push({ action: 'add', setName: d.setName, tokenName: d.tokenName, value: d.value, type: d.type });
+        }
+        if (d.kind === 'changed' && d.action !== 'ignore') {
+          actions.push({ action: d.action, setName: d.setName, tokenName: d.tokenName, value: d.newValue, type: d.type });
+        }
+        if (d.kind === 'removed' && d.action === 'remove') {
+          actions.push({ action: 'remove', setName: d.setName, tokenName: d.tokenName });
+        }
+      }
+      if (!actions.length) return;
+
+      applyBtn.disabled = true;
+      footerStatus.textContent = '';
+      middle.innerHTML = `<div class="center-state"><div class="spinner"></div><span>Applying ${actions.length} change${actions.length !== 1 ? 's' : ''}...</span></div>`;
+      footer.style.display = 'none';
+
+      window.parent.postMessage({ type: 'apply-actions', actions }, '*');
+    });
+  </script>
+</body>
+</html>

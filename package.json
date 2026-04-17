@@ -1,0 +1,8 @@
+{
+  "name": "penpot-tokens-merge",
+  "version": "1.0.0",
+  "description": "Compare and merge token JSON files with your existing Penpot tokens",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

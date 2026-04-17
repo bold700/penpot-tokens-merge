@@ -1,0 +1,14 @@
+{
+  "name": "Token Merge",
+  "description": "Compare and merge token JSON files with your existing Penpot tokens",
+  "host": "http://localhost:7778",
+  "code": "plugin.js",
+  "icon": "/icon.svg",
+  "permissions": [
+    "content:read",
+    "content:write",
+    "library:read",
+    "library:write",
+    "allow:downloads"
+  ]
+}

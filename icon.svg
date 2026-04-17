@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="128" height="128" rx="24" fill="#1e1e1e"/>
+
+  <!-- Left token block -->
+  <rect x="14" y="30" width="38" height="46" rx="7" fill="#2a2a2a" stroke="#7c3aed" stroke-width="2.5"/>
+  <rect x="22" y="42" width="22" height="3" rx="1.5" fill="#7c3aed" opacity="0.7"/>
+  <rect x="22" y="50" width="16" height="3" rx="1.5" fill="#7c3aed" opacity="0.4"/>
+  <rect x="22" y="58" width="19" height="3" rx="1.5" fill="#7c3aed" opacity="0.4"/>
+  <rect x="22" y="66" width="13" height="3" rx="1.5" fill="#7c3aed" opacity="0.4"/>
+
+  <!-- Right token block -->
+  <rect x="76" y="30" width="38" height="46" rx="7" fill="#2a2a2a" stroke="#7c3aed" stroke-width="2.5"/>
+  <rect x="84" y="42" width="22" height="3" rx="1.5" fill="#7c3aed" opacity="0.7"/>
+  <rect x="84" y="50" width="14" height="3" rx="1.5" fill="#7c3aed" opacity="0.4"/>
+  <rect x="84" y="58" width="20" height="3" rx="1.5" fill="#7c3aed" opacity="0.4"/>
+  <rect x="84" y="66" width="17" height="3" rx="1.5" fill="#7c3aed" opacity="0.4"/>
+
+  <!-- Merge arrows -->
+  <path d="M55 53 L73 53" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M66 47 L73 53 L66 59" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Bottom merge dot -->
+  <circle cx="64" cy="90" r="7" fill="#7c3aed"/>
+  <path d="M33 76 Q33 90 57 90" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.5"/>
+  <path d="M95 76 Q95 90 71 90" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.5"/>
+</svg>
