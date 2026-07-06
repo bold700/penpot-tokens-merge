@@ -105,6 +105,27 @@
     .dot.changed { background: #f59e0b; }
     .dot.removed { background: #ef4444; }
 
+    .filter-bar {
+      flex-shrink: 0;
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 14px;
+      border-bottom: 1px solid #2a2a2a;
+    }
+    .filter-input {
+      flex: 1;
+      background: #191919;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 6px 9px;
+      font-size: 11px;
+      color: #ddd;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    .filter-input::placeholder { color: #555; }
+    .filter-input:focus { border-color: #7c3aed; }
+    .filter-count { font-size: 10px; color: #555; flex-shrink: 0; white-space: nowrap; }
+
     .diff-list { flex: 1; overflow-y: auto; }
     .diff-list::-webkit-scrollbar { width: 4px; }
     .diff-list::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
@@ -371,6 +392,7 @@
     function reset() {
       diffItems = [];
       currentFlat = {};
+      filterTerm = '';
 
       icon1.textContent = '↻';
       icon1.className = 'step-icon spinning';
@@ -399,7 +421,7 @@
         for (const [tokenName, tok] of Object.entries(tokens)) {
           const cur = currentFlat[setName]?.[tokenName];
           if (!cur) {
-            diffItems.push({ kind: 'new', setName, tokenName, value: tok.value, type: tok.type, include: true });
+            diffItems.push({ kind: 'new', setName, tokenName, value: tok.value, type: tok.type, include: false });
           } else if (String(cur.value).toUpperCase() !== String(tok.value).toUpperCase()) {
             diffItems.push({ kind: 'changed', setName, tokenName, oldValue: cur.value, newValue: tok.value, type: tok.type, action: 'replace' });
           }
@@ -433,6 +455,32 @@
       return btn;
     }
 
+    let filterTerm = '';
+
+    function matchesFilter(d) {
+      const term = filterTerm.trim().toLowerCase();
+      return !term || (d.setName + ' ' + d.tokenName).toLowerCase().includes(term);
+    }
+
+    function applyFilter() {
+      const term = filterTerm.trim().toLowerCase();
+      const rows = [...document.querySelectorAll('.diff-list [data-search]')];
+      rows.forEach(r => {
+        r.style.display = (!term || r.dataset.search.includes(term)) ? '' : 'none';
+      });
+      document.querySelectorAll('.diff-list .section-header').forEach(h => {
+        const sec = h.dataset.section;
+        const any = [...document.querySelectorAll(`.diff-list [data-section="${sec}"]`)]
+          .some(r => !r.classList.contains('section-header') && r.style.display !== 'none');
+        h.style.display = any ? '' : 'none';
+      });
+      const count = document.getElementById('filter-count');
+      if (count) {
+        const vis = rows.filter(r => r.style.display !== 'none').length;
+        count.textContent = term ? `${vis} shown` : '';
+      }
+    }
+
     function renderDiff() {
       const newItems     = diffItems.filter(d => d.kind === 'new');
       const changedItems = diffItems.filter(d => d.kind === 'changed');
@@ -459,6 +507,22 @@
       </div>`;
       middle.appendChild(toolbar);
 
+      // Filter bar
+      const filterBar = document.createElement('div');
+      filterBar.className = 'filter-bar';
+      const filterInput = document.createElement('input');
+      filterInput.type = 'text';
+      filterInput.className = 'filter-input';
+      filterInput.placeholder = 'Filter tokens by name or set…';
+      filterInput.value = filterTerm;
+      const filterCount = document.createElement('span');
+      filterCount.className = 'filter-count';
+      filterCount.id = 'filter-count';
+      filterInput.addEventListener('input', () => { filterTerm = filterInput.value; applyFilter(); });
+      filterBar.appendChild(filterInput);
+      filterBar.appendChild(filterCount);
+      middle.appendChild(filterBar);
+
       const list = document.createElement('div');
       list.className = 'diff-list';
       middle.appendChild(list);
@@ -467,28 +531,36 @@
       if (newItems.length) {
         const sec = document.createElement('div');
         sec.className = 'section-header';
+        sec.dataset.section = 'new';
         const tog = document.createElement('span');
         tog.className = 'section-toggle';
-        tog.textContent = 'Select none';
         sec.innerHTML = `<span class="dot new"></span> NEW TOKENS`;
         sec.appendChild(tog);
         list.appendChild(sec);
 
+        const syncTogLabel = () => {
+          const vis = newItems.filter(matchesFilter);
+          tog.textContent = (vis.length && vis.every(d => d.include)) ? 'Select none' : 'Select all';
+        };
+
         tog.addEventListener('click', () => {
-          const allOn = newItems.every(d => d.include);
-          newItems.forEach(d => d.include = !allOn);
-          tog.textContent = allOn ? 'Select all' : 'Select none';
-          list.querySelectorAll('.new-cb').forEach((cb, i) => { cb.checked = newItems[i].include; });
+          const vis = newItems.filter(matchesFilter);
+          const allOn = vis.length && vis.every(d => d.include);
+          vis.forEach(d => { d.include = !allOn; if (d._cb) d._cb.checked = d.include; });
+          syncTogLabel();
           updateApplyLabel();
         });
 
         for (const d of newItems) {
           const row = document.createElement('div');
           row.className = 'token-row';
+          row.dataset.section = 'new';
+          row.dataset.search = (d.setName + ' ' + d.tokenName).toLowerCase();
 
           const cb = document.createElement('input');
           cb.type = 'checkbox'; cb.className = 'token-cb new-cb'; cb.checked = d.include;
-          cb.addEventListener('change', () => { d.include = cb.checked; updateApplyLabel(); });
+          cb.addEventListener('change', () => { d.include = cb.checked; syncTogLabel(); updateApplyLabel(); });
+          d._cb = cb;
 
           const nameEl = document.createElement('div');
           nameEl.className = 'token-name';
@@ -502,6 +574,7 @@
           row.appendChild(cb); row.appendChild(nameEl); row.appendChild(valEl);
           list.appendChild(row);
         }
+        syncTogLabel();
       }
 
       // ── Changed ──
@@ -511,6 +584,7 @@
         const tog = document.createElement('span');
         tog.className = 'section-toggle';
         tog.textContent = 'Ignore all';
+        sec.dataset.section = 'changed';
         sec.innerHTML = `<span class="dot changed"></span> CHANGED TOKENS`;
         sec.appendChild(tog);
         list.appendChild(sec);
@@ -526,6 +600,8 @@
         for (const d of changedItems) {
           const row = document.createElement('div');
           row.className = 'conflict-row';
+          row.dataset.section = 'changed';
+          row.dataset.search = (d.setName + ' ' + d.tokenName).toLowerCase();
 
           const nameEl = document.createElement('div');
           nameEl.className = 'token-name';
@@ -556,6 +632,7 @@
         const tog = document.createElement('span');
         tog.className = 'section-toggle';
         tog.textContent = 'Remove all';
+        sec.dataset.section = 'removed';
         sec.innerHTML = `<span class="dot removed"></span> REMOVED IN NEW FILE`;
         sec.appendChild(tog);
         list.appendChild(sec);
@@ -571,6 +648,8 @@
         for (const d of removedItems) {
           const row = document.createElement('div');
           row.className = 'conflict-row';
+          row.dataset.section = 'removed';
+          row.dataset.search = (d.setName + ' ' + d.tokenName).toLowerCase();
 
           const nameEl = document.createElement('div');
           nameEl.className = 'token-name';
@@ -590,6 +669,8 @@
           list.appendChild(row);
         }
       }
+
+      applyFilter();
     }
 
     function updateApplyLabel() {
